@@ -19,6 +19,8 @@ namespace brolive
         Transform _transform;
         Transform player;
         Rigidbody _rigidbody;
+        Animator anim;
+        GameObject swordHitbox;
 
         EnemyStates state = EnemyStates.idle;
         float currentStateElapsed = 0;
@@ -34,6 +36,9 @@ namespace brolive
             player = FindObjectOfType<PlayerLogic>().transform;
             _rigidbody = GetComponent<Rigidbody>();
             _transform = transform;
+            anim = GetComponent<Animator>();
+            swordHitbox = GetComponentInChildren<Damager>().gameObject;
+            swordHitbox.SetActive(false);
         }
 
         // Update is called once per frame
@@ -162,15 +167,16 @@ namespace brolive
         IEnumerator HandleMelee()
         {
             //timeSinceLastMelee = 0;
-            meleeWeapon.SetActive(true);
-            meleeWeapon.GetComponent<Animator>().SetTrigger("swing");
-            yield return new WaitForSeconds(0.25f);
-            meleeWeapon.SetActive(false);
+            //meleeWeapon.SetActive(true);
+            swordHitbox.SetActive(true);
+            anim.SetTrigger("swing");
+            yield return new WaitForSeconds(1f);
+            swordHitbox.SetActive(false);
+            //meleeWeapon.SetActive(false);
         }
 
         void UpdateMelee()
         {
-            //Debug.Log("in melee");
             if (currentStateElapsed >= 2.0f)
             {
                 state = EnemyStates.idle;
