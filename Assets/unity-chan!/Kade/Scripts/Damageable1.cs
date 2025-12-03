@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace Brolive
+namespace Kade
 {
     public class Damageable : MonoBehaviour
     {
+        EnemyTest chanScript;
+
         [SerializeField] int maxHealth;
         [SerializeField] float iTime = 0.5f;
         [SerializeField] Material flashMaterial;
@@ -16,6 +18,9 @@ namespace Brolive
         [SerializeField] AudioClipCollection hurtSounds;
         [SerializeField] AudioClipCollection deathSounds;
 
+        [SerializeField] float phaseTwoStart;
+        [SerializeField] float phaseThreeStart;
+
         public UnityEvent<int> OnInitialize;
         public UnityEvent<Damage> OnHit;
         public UnityEvent OnDeath;
@@ -23,6 +28,13 @@ namespace Brolive
 
         int currentHealth;
         float timeSinceHit = 0;
+
+        float blockTimer = 0;
+        int sequenceHits = 0;
+        float startShield = 3;
+        int hitThreshold = 3;
+
+        bool blocking = false;
 
         // Start is called before the first frame update
         void Start()
@@ -36,10 +48,22 @@ namespace Brolive
         private void Update()
         {
             timeSinceHit += Time.deltaTime;
+
+            if (blockTimer >= startShield)
+            {
+                sequenceHits = 0;
+                blockTimer = 0;
+            }
         }
 
         public bool Hit(Damage damage)
         {
+            if (blocking)
+            {
+                chanScript.BlockedAttack();
+                return false;
+            }
+
             if (timeSinceHit < iTime)
                 return false;
 
@@ -52,6 +76,8 @@ namespace Brolive
             }
 
             timeSinceHit = 0;
+
+            sequenceHits++;
 
             currentHealth -= damage.amount;
 
@@ -71,6 +97,12 @@ namespace Brolive
             {
                 currentHealth = 0;
                 Death();
+            }
+
+            if (sequenceHits >= hitThreshold)
+            {
+                chanScript.StartBlocking();
+                blocking = true;
             }
 
             return true;

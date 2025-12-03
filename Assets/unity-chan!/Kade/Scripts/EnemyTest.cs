@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace brolive
+namespace Kade
 {
     public enum EnemyStates
     {
@@ -12,15 +12,18 @@ namespace brolive
 
     public class EnemyTest : MonoBehaviour
     {
-        [SerializeField] float speed;
         [SerializeField] GameObject meleeWeapon;
+        [SerializeField] GameObject shield;
+        [SerializeField] GameObject swordHitbox;
+        [SerializeField] GameObject kickHitbox;
+
+        [SerializeField] float speed;
 
         Navigator navigator;
         Transform _transform;
         Transform player;
         Rigidbody _rigidbody;
         Animator anim;
-        GameObject swordHitbox;
 
         EnemyStates state = EnemyStates.idle;
         float currentStateElapsed = 0;
@@ -28,8 +31,8 @@ namespace brolive
         int pathNodeIndex = 0;
         Vector3 targetVelocity;
         bool inMeleeRange = false;
+        bool canAttack = true;
 
-        // Start is called before the first frame update
         void Start()
         {
             navigator = GetComponent<Navigator>();
@@ -37,11 +40,11 @@ namespace brolive
             _rigidbody = GetComponent<Rigidbody>();
             _transform = transform;
             anim = GetComponent<Animator>();
-            swordHitbox = GetComponentInChildren<Damager>().gameObject;
             swordHitbox.SetActive(false);
+            shield.SetActive(false);
+            kickHitbox.SetActive(false);
         }
 
-        // Update is called once per frame
         void Update()
         {
             currentStateElapsed += Time.deltaTime;
@@ -72,8 +75,6 @@ namespace brolive
 
         void UpdateIdle()
         {
-            //Debug.Log("in idle");
-
             if (currentStateElapsed > 2.0f)
             {
                 if (inMeleeRange)
@@ -85,8 +86,6 @@ namespace brolive
 
         bool AttemptBeginPursue()
         {
-            //Debug.Log("attempting to pursue");
-
             if (AttemptMakePathToPlayer())
             {
                 pathNodeIndex = 0;
@@ -103,13 +102,9 @@ namespace brolive
 
         void UpdatePursue()
         {
-            //Debug.Log("in pursue");
-
             currentTargetNodePosition = navigator.PathNodes[pathNodeIndex];
 
-            //Debug.Log("current target position is " + currentTargetNodePosition + " at index " + pathNodeIndex);
-
-            Vector3 dirToNode = (currentTargetNodePosition - _transform.position);//.normalized;
+            Vector3 dirToNode = (currentTargetNodePosition - _transform.position);
             dirToNode.y = 0;
             dirToNode.Normalize();
 
@@ -117,11 +112,8 @@ namespace brolive
 
             float distToNode = Vector3.Distance(currentTargetNodePosition, _transform.position);
 
-            //Debug.Log("distance to node: " + distToNode);
-
             if (distToNode < 3f)
             {
-                //Debug.Log("close to node");
                 pathNodeIndex++;
 
                 if (pathNodeIndex >= navigator.PathNodes.Count)
@@ -136,7 +128,8 @@ namespace brolive
             if (inMeleeRange)
             {
                 // do melee attack
-                EnterMelee();
+                if (canAttack)
+                    EnterMelee();
                 return;
             }
 
@@ -152,8 +145,6 @@ namespace brolive
 
         void EnterMelee()
         {
-            //Debug.Log("Enter melee");
-            // animator.setTrigger("melee");
             var dirToPlayer = (player.transform.position - transform.position).normalized;
             dirToPlayer.y = 0;
             transform.forward = dirToPlayer;
@@ -166,13 +157,10 @@ namespace brolive
 
         IEnumerator HandleMelee()
         {
-            //timeSinceLastMelee = 0;
-            //meleeWeapon.SetActive(true);
             swordHitbox.SetActive(true);
             anim.SetTrigger("swing");
             yield return new WaitForSeconds(1f);
             swordHitbox.SetActive(false);
-            //meleeWeapon.SetActive(false);
         }
 
         void UpdateMelee()
@@ -211,6 +199,17 @@ namespace brolive
             this.inMeleeRange = inMeleeRange;
         }
 
-        
+        public void StartBlocking()
+        {
+            canAttack = false;
+            shield.SetActive(true);
+            anim.SetTrigger("startBlock");
+        }
+
+        public void BlockedAttack()
+        {
+            kickHitbox.SetActive(true);
+            anim.SetTrigger("blocked");
+        }
     }
 }
