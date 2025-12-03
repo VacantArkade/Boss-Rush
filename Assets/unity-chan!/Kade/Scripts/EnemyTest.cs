@@ -211,5 +211,13 @@ namespace Kade
             kickHitbox.SetActive(true);
             anim.SetTrigger("blocked");
         }
+
+        public void StopBlocking()
+        {
+            canAttack = true;
+            shield.SetActive(false);
+            kickHitbox.SetActive(false);
+            anim.SetTrigger("endBlock");
+        }
     }
 }

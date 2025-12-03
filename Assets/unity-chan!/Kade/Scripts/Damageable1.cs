@@ -8,6 +8,7 @@ namespace Kade
     public class Damageable : MonoBehaviour
     {
         EnemyTest chanScript;
+        Transform player;
 
         [SerializeField] int maxHealth;
         [SerializeField] float iTime = 0.5f;
@@ -29,10 +30,11 @@ namespace Kade
         int currentHealth;
         float timeSinceHit = 0;
 
-        float blockTimer = 0;
-        int sequenceHits = 0;
-        float startShield = 3;
-        int hitThreshold = 3;
+        float blockTimer = 0; //How long block has happened
+        int sequenceHits = 0; //How many hits in a row
+        float startShield = 3; //Timer for sequenceHits to build
+        int hitThreshold = 3; //How many hits till start blocking
+        float blockStop = 4; //How long to block
 
         bool blocking = false;
 
@@ -43,11 +45,29 @@ namespace Kade
 
             OnInitialize?.Invoke(maxHealth);
             OnHealthChanged?.Invoke(maxHealth, maxHealth);
+
+            player = FindObjectOfType<PlayerLogic>().transform;
         }
 
         private void Update()
         {
             timeSinceHit += Time.deltaTime;
+
+            if (blocking)
+            {
+                var dirToPlayer = (player.transform.position - transform.position).normalized;
+                dirToPlayer.y = 0;
+                transform.forward = dirToPlayer;
+
+                blockTimer += Time.deltaTime;
+                if (blockTimer >= blockStop)
+                {
+                    blocking = false;
+                    blockTimer = 0;
+                    sequenceHits = 0;
+                    chanScript.StopBlocking();
+                }
+            }
 
             if (blockTimer >= startShield)
             {
