@@ -159,9 +159,9 @@ namespace Kade
         IEnumerator HandleMelee()
         {
             swordHitbox.SetActive(true);
-            /*if (dam.currentHealth < dam.phaseTwoStart)
+            if (dam.currentHealth < dam.phaseTwoStart)
                 anim.SetTrigger("tripleSwing");
-            else*/
+            else
                 anim.SetTrigger("swing");
             yield return new WaitForSeconds(1.5f);
             swordHitbox.SetActive(false);

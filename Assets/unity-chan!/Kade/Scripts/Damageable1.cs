@@ -31,16 +31,21 @@ namespace Kade
         float timeSinceHit = 0;
 
         float blockTimer = 0; //How long block has happened
+        float sequenceTimer = 0; //Counter for sequence hits
         int sequenceHits = 0; //How many hits in a row
-        float startShield = 3; //Timer for sequenceHits to build
+        float startShield = 5; //Timer for sequenceHits to build
         int hitThreshold = 3; //How many hits till start blocking
         float blockStop = 4; //How long to block
 
         bool blocking = false;
+        bool isUnityChan = false;
 
         // Start is called before the first frame update
         void Start()
         {
+            if (GetComponent<EnemyTest>() != null)
+                isUnityChan = true;
+
             currentHealth = maxHealth;
 
             OnInitialize?.Invoke(maxHealth);
@@ -53,32 +58,43 @@ namespace Kade
         {
             timeSinceHit += Time.deltaTime;
 
-            if (blocking)
+            if (isUnityChan)
             {
-                var dirToPlayer = (player.transform.position - transform.position).normalized;
-                dirToPlayer.y = 0;
-                transform.forward = dirToPlayer;
+                sequenceTimer += Time.deltaTime;
 
-                blockTimer += Time.deltaTime;
-                if (blockTimer >= blockStop)
+                if (blocking)
                 {
-                    blocking = false;
-                    blockTimer = 0;
-                    sequenceHits = 0;
-                    chanScript.StopBlocking();
-                }
-            }
+                    var dirToPlayer = (player.transform.position - transform.position).normalized;
+                    dirToPlayer.y = 0;
+                    transform.forward = dirToPlayer;
 
-            if (blockTimer >= startShield)
-            {
-                sequenceHits = 0;
-                blockTimer = 0;
+                    blockTimer += Time.deltaTime;
+                    if (blockTimer >= blockStop)
+                    {
+                        blockTimer = 0;
+                        sequenceHits = 0;
+                        chanScript.StopBlocking();
+                        blocking = false;
+                    }
+                }
+
+                if (sequenceHits >= hitThreshold)
+                {
+                    chanScript.StartBlocking();
+                }
+
+                if (sequenceTimer >= startShield)
+                {
+                    sequenceHits = 0;
+                    blockTimer = 0;
+                    sequenceTimer = 0;
+                }
             }
         }
 
         public bool Hit(Kade.Damage damage)
         {
-            if (blocking)
+            if (blocking && isUnityChan)
             {
                 chanScript.BlockedAttack();
                 blocking = false;
@@ -99,7 +115,11 @@ namespace Kade
 
             timeSinceHit = 0;
 
-            sequenceHits++;
+            if (isUnityChan)
+            {
+                sequenceHits++;
+                sequenceTimer = 0;
+            }
 
             currentHealth -= damage.amount;
 
@@ -121,7 +141,7 @@ namespace Kade
                 Death();
             }
 
-            if (sequenceHits >= hitThreshold)
+            if (sequenceHits >= hitThreshold && isUnityChan)
             {
                 chanScript.StartBlocking();
                 blocking = true;

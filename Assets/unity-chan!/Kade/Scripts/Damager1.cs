@@ -11,6 +11,7 @@ namespace Kade
         [SerializeField] float knockbackForce = 1;
         [SerializeField] GameObject hitEffectPrefab;
         [SerializeField] AudioClipCollection hitSounds;
+        [SerializeField] float test;
 
         public UnityEvent OnContact;
         public UnityEvent OnSuccessfulHit;

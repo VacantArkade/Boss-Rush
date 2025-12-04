@@ -276,6 +276,7 @@ GameObject:
   - component: {fileID: 75215478}
   - component: {fileID: 75215477}
   - component: {fileID: 75215476}
+  - component: {fileID: 75215480}
   m_Layer: 9
   m_Name: SwordHitbox
   m_TagString: Untagged
@@ -305,7 +306,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 75215474}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 36d91920f1168024cad6f2f46528b94c, type: 3}
   m_Name: 
@@ -394,6 +395,29 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 75215474}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &75215480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 75215474}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e91df305d1cb9b7478afbb9bfd260f18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damageAmount: 1
+  knockbackForce: 1
+  hitEffectPrefab: {fileID: 0}
+  hitSounds: {fileID: 0}
+  test: 0
+  OnContact:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSuccessfulHit:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1001 &197776751
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1929,6 +1953,7 @@ GameObject:
   - component: {fileID: 971167041}
   - component: {fileID: 971167040}
   - component: {fileID: 971167039}
+  - component: {fileID: 971167044}
   m_Layer: 9
   m_Name: KickHitbox
   m_TagString: Untagged
@@ -1943,7 +1968,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 971167038}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 36d91920f1168024cad6f2f46528b94c, type: 3}
   m_Name: 
@@ -2047,6 +2072,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 654963509}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &971167044
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 971167038}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e91df305d1cb9b7478afbb9bfd260f18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  damageAmount: 0
+  knockbackForce: 5
+  hitEffectPrefab: {fileID: 0}
+  hitSounds: {fileID: 0}
+  test: 0
+  OnContact:
+    m_PersistentCalls:
+      m_Calls: []
+  OnSuccessfulHit:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!1 &1023728218 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: c7c59723505434247981d6e4bdb6f983, type: 3}
@@ -2172,27 +2220,27 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalScale.x
-      value: 1.096894
+      value: 1.0968943
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalScale.y
-      value: 1.0968941
+      value: 1.0968944
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1.0968941
+      value: 1.0968943
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0.06258333
+      value: 0.06258308
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.0019359234
+      value: 0.0019359587
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.0913046
+      value: -0.09130481
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2200,7 +2248,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.0020529327
+      value: 0.0020529472
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalRotation.y
@@ -2208,7 +2256,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.10874134
+      value: -0.108741365
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: cfabe9008d3b4364ca32c05ceaf4821c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -2315,6 +2363,7 @@ MonoBehaviour:
   knockbackForce: 1
   hitEffectPrefab: {fileID: 2717892095994439559, guid: 7f6dafc4f0f90564395b340bbe141b85, type: 3}
   hitSounds: {fileID: 11400000, guid: b098b77403c117748926aad79cd8fd49, type: 2}
+  test: 0
   OnContact:
     m_PersistentCalls:
       m_Calls: []
@@ -2453,7 +2502,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 300718770}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: eb273e0f3a83ed34a8217044c573614e, type: 3}
   m_Name: 
