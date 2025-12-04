@@ -30,24 +30,21 @@ namespace Kade
         public int currentHealth;
         float timeSinceHit = 0;
 
-        float blockTimer = 0; //How long block has happened
-        float sequenceTimer = 0; //Counter for sequence hits
-        int sequenceHits = 0; //How many hits in a row
-        float startShield = 5; //Timer for sequenceHits to build
-        int hitThreshold = 3; //How many hits till start blocking
-        float blockStop = 4; //How long to block
+        // Sequence-based blocking
+        float sequenceTimer = 0f;   // Counter window for sequence hits
+        int sequenceHits = 0;       // Hits in the current sequence
+        [SerializeField] float startShield = 5f;  // Window length to accumulate hits
+        [SerializeField] int hitThreshold = 3;    // Hits needed to trigger block
 
-        bool blocking = false;
         bool isUnityChan = false;
 
-        // Start is called before the first frame update
         void Start()
         {
-            if (GetComponent<EnemyTest>() != null)
-                isUnityChan = true;
+            // Determine if this is UnityChan
+            chanScript = GetComponent<EnemyTest>();
+            isUnityChan = (chanScript != null);
 
             currentHealth = maxHealth;
-
             OnInitialize?.Invoke(maxHealth);
             OnHealthChanged?.Invoke(maxHealth, maxHealth);
 
@@ -58,93 +55,68 @@ namespace Kade
         {
             timeSinceHit += Time.deltaTime;
 
-            if (isUnityChan)
+            if (!isUnityChan) return;
+
+            // Maintain the sequence hit window
+            sequenceTimer += Time.deltaTime;
+            if (sequenceTimer >= startShield)
             {
-                sequenceTimer += Time.deltaTime;
+                sequenceHits = 0;
+                sequenceTimer = 0f;
+            }
 
-                if (blocking)
-                {
-                    var dirToPlayer = (player.transform.position - transform.position).normalized;
-                    dirToPlayer.y = 0;
-                    transform.forward = dirToPlayer;
-
-                    blockTimer += Time.deltaTime;
-                    if (blockTimer >= blockStop)
-                    {
-                        blockTimer = 0;
-                        sequenceHits = 0;
-                        chanScript.StopBlocking();
-                        blocking = false;
-                    }
-                }
-
-                if (sequenceHits >= hitThreshold)
-                {
-                    chanScript.StartBlocking();
-                }
-
-                if (sequenceTimer >= startShield)
-                {
-                    sequenceHits = 0;
-                    blockTimer = 0;
-                    sequenceTimer = 0;
-                }
+            if (sequenceHits >= hitThreshold && !chanScript.IsBlocking)
+            {
+                chanScript.BeginBlockRequest();
             }
         }
 
         public bool Hit(Kade.Damage damage)
         {
-            if (blocking && isUnityChan)
+            if (isUnityChan && chanScript != null && chanScript.IsBlocking)
             {
-                chanScript.BlockedAttack();
-                blocking = false;
-
+                chanScript.OnBlockedHit();
                 return false;
             }
 
-            if (timeSinceHit < iTime)
-                return false;
-
-            if (currentHealth == 0)
-                return false;
+            if (timeSinceHit < iTime) return false;
+            if (currentHealth == 0) return false;
 
             if (flashMaterial != null)
             {
                 StartHitFlash();
             }
 
-            timeSinceHit = 0;
+            timeSinceHit = 0f;
 
+            // Track sequence hits
             if (isUnityChan)
             {
                 sequenceHits++;
-                sequenceTimer = 0;
+                sequenceTimer = 0f;
+
+                // If hit threshold reached, enter BlockState
+                if (sequenceHits >= hitThreshold && !chanScript.IsBlocking)
+                {
+                    chanScript.BeginBlockRequest();
+                }
             }
 
             currentHealth -= damage.amount;
 
-            OnHit?.Invoke(damage); // handle any additional hit functions
-
+            OnHit?.Invoke(damage);
             OnHealthChanged?.Invoke(damage.amount, currentHealth);
 
             if (hurtSounds != null)
                 SoundEffectsManager.instance.PlayRandomClip(hurtSounds.clips, true);
 
             if (damageEffectPrefab != null)
-            {
                 Instantiate(damageEffectPrefab, transform.position, Quaternion.identity);
-            }
 
             if (currentHealth <= 0)
             {
                 currentHealth = 0;
                 Death();
-            }
-
-            if (sequenceHits >= hitThreshold && isUnityChan)
-            {
-                chanScript.StartBlocking();
-                blocking = true;
             }
 
             return true;
@@ -158,37 +130,25 @@ namespace Kade
                 SoundEffectsManager.instance.PlayRandomClip(deathSounds.clips, true);
         }
 
-        public void ResetIFrames()
-        {
-            timeSinceHit = 0;
-        }
+        public void ResetIFrames() => timeSinceHit = 0f;
 
         public void StartHitFlash()
         {
-            if (timeSinceHit < iTime)
-                return;
+            if (timeSinceHit < iTime) return;
 
             foreach (var renderer in renderers)
-            {
                 StartCoroutine(HandleFlashMaterialSwap(renderer));
-            }
         }
 
         IEnumerator HandleFlashMaterialSwap(Renderer renderer)
         {
             Material[] originalMats = new Material[renderer.materials.Length];
-
             for (int i = 0; i < originalMats.Length; i++)
-            {
                 originalMats[i] = renderer.materials[i];
-            }
 
             Material[] newMats = new Material[renderer.materials.Length];
-
             for (int i = 0; i < newMats.Length; i++)
-            {
                 newMats[i] = flashMaterial;
-            }
 
             renderer.materials = newMats;
 
@@ -200,10 +160,12 @@ namespace Kade
         [ContextMenu("Test Hit")]
         public void TestHit()
         {
-            Kade.Damage test = new Kade.Damage();
-            test.amount = 1;
-            test.direction = Vector3.zero;
-            test.knockbackForce = 0;
+            Kade.Damage test = new Kade.Damage
+            {
+                amount = 1,
+                direction = Vector3.zero,
+                knockbackForce = 0
+            };
             Hit(test);
         }
     }

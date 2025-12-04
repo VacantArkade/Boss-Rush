@@ -1,227 +1,299 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
 namespace Kade
 {
-    public enum EnemyStates
+    // Base State
+    public abstract class EnemyState
     {
-        idle, pursue, melee, ranged, dead
+        protected EnemyTest enemy;
+        protected float elapsedTime;
+
+        public EnemyState(EnemyTest enemy) { this.enemy = enemy; }
+
+        public virtual void Enter() { elapsedTime = 0f; }
+        public virtual void Update() { elapsedTime += Time.deltaTime; }
+        public virtual void Exit() { }
     }
 
+    // Idle State
+    public class IdleState : EnemyState
+    {
+        public IdleState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Update()
+        {
+            base.Update();
+            if (elapsedTime > 2.0f)
+            {
+                if (enemy.InMeleeRange && enemy.CanAttack)
+                    enemy.StateMachine.ChangeState(new MeleeState(enemy));
+                else if (!enemy.InMeleeRange)
+                    enemy.StateMachine.ChangeState(new PursueState(enemy));
+            }
+        }
+    }
+
+    // Pursue State
+    public class PursueState : EnemyState
+    {
+        public PursueState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.PathNodeIndex = 0;
+            enemy.AttemptMakePathToPlayer();
+        }
+
+        public override void Update()
+        {
+            base.Update();
+            var targetNode = enemy.Navigator.PathNodes[enemy.PathNodeIndex];
+            Vector3 dirToNode = (targetNode - enemy.Transform.position);
+            dirToNode.y = 0;
+            dirToNode.Normalize();
+
+            enemy.Transform.forward = dirToNode;
+            float distToNode = Vector3.Distance(targetNode, enemy.Transform.position);
+
+            if (distToNode < 3f)
+            {
+                enemy.PathNodeIndex++;
+                if (enemy.PathNodeIndex >= enemy.Navigator.PathNodes.Count)
+                {
+                    enemy.PathNodeIndex = 0;
+                    enemy.AttemptMakePathToPlayer();
+                    return;
+                }
+            }
+
+            if (enemy.InMeleeRange && enemy.CanAttack)
+            {
+                enemy.StateMachine.ChangeState(new MeleeState(enemy));
+                return;
+            }
+
+            enemy.TargetVelocity = enemy.Transform.forward * enemy.Speed;
+
+            var v = enemy.TargetVelocity;
+            v.y = enemy.Rigidbody.linearVelocity.y;
+            enemy.TargetVelocity = v;
+
+            if (elapsedTime > 1f)
+            {
+                enemy.PathNodeIndex = 1;
+                enemy.AttemptMakePathToPlayer();
+                elapsedTime = 0f;
+            }
+        }
+    }
+
+    // Melee State
+    public class MeleeState : EnemyState
+    {
+        public MeleeState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            var dirToPlayer = (enemy.Player.position - enemy.Transform.position).normalized;
+            dirToPlayer.y = 0;
+            enemy.Transform.forward = dirToPlayer;
+            enemy.TargetVelocity = Vector3.zero;
+            enemy.StartCoroutine(enemy.HandleMelee());
+        }
+
+        public override void Update()
+        {
+            base.Update();
+            if (elapsedTime >= 2.0f)
+                enemy.StateMachine.ChangeState(new IdleState(enemy));
+        }
+    }
+
+    // Block State
+    public class BlockState : EnemyState
+    {
+        private readonly float blockDuration = 4f;
+        public BlockState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.CanAttack = false;
+            enemy.Shield.SetActive(true);
+            enemy.Anim.SetTrigger("startBlock");
+            enemy.TargetVelocity = Vector3.zero;
+            FacePlayer();
+        }
+
+        public override void Update()
+        {
+            base.Update();
+
+            // Keep facing the player while blocking
+            FacePlayer();
+
+            // Exit after duration
+            if (elapsedTime >= blockDuration)
+            {
+                enemy.StateMachine.ChangeState(new IdleState(enemy));
+            }
+        }
+
+        public override void Exit()
+        {
+            enemy.CanAttack = true;
+            enemy.Shield.SetActive(false);
+            enemy.KickHitbox.SetActive(false);
+            enemy.Anim.SetTrigger("endBlock");
+            enemy.NotifyBlockEnded();
+        }
+
+        private void FacePlayer()
+        {
+            var dir = (enemy.Player.position - enemy.Transform.position);
+            dir.y = 0f;
+            if (dir.sqrMagnitude > 0.0001f)
+            {
+                dir.Normalize();
+                enemy.Transform.forward = dir;
+            }
+        }
+    }
+
+    // Dead State
+    public class DeadState : EnemyState
+    {
+        public DeadState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.Navigator.enabled = false;
+            enemy.TargetVelocity = Vector3.zero;
+            GameManager.instance.GoToNextLevel();
+        }
+    }
+
+    // State Machine
+    public class StateMachine
+    {
+        private EnemyState currentState;
+        public void ChangeState(EnemyState newState)
+        {
+            currentState?.Exit();
+            currentState = newState;
+            currentState.Enter();
+        }
+
+        public void Update() => currentState?.Update();
+    }
+
+    // EnemyTest
     public class EnemyTest : MonoBehaviour
     {
         [SerializeField] GameObject meleeWeapon;
         [SerializeField] GameObject shield;
         [SerializeField] GameObject swordHitbox;
         [SerializeField] GameObject kickHitbox;
-
         [SerializeField] float speed;
 
-        Kade.Damageable dam;
-        Navigator navigator;
-        Transform _transform;
-        Transform player;
-        Rigidbody _rigidbody;
-        Animator anim;
+        public Damageable Dam { get; private set; }
+        public Navigator Navigator { get; private set; }
+        public Transform Transform { get; private set; }
+        public Transform Player { get; private set; }
+        public Rigidbody Rigidbody { get; private set; }
+        public Animator Anim { get; private set; }
 
-        EnemyStates state = EnemyStates.idle;
-        float currentStateElapsed = 0;
-        Vector3 currentTargetNodePosition;
-        int pathNodeIndex = 0;
-        Vector3 targetVelocity;
-        bool inMeleeRange = false;
-        bool canAttack = true;
+        public StateMachine StateMachine { get; private set; }
+        public Vector3 TargetVelocity { get; set; }
+        public int PathNodeIndex { get; set; }
+        public float Speed => speed;
+        public bool InMeleeRange { get; private set; }
+        public bool CanAttack { get; set; } = true;
+        public bool IsBlocking { get; private set; }
+
+        public GameObject Shield => shield;
+        public GameObject SwordHitbox => swordHitbox;
+        public GameObject KickHitbox => kickHitbox;
 
         void Start()
         {
-            navigator = GetComponent<Navigator>();
-            player = FindObjectOfType<PlayerLogic>().transform;
-            _rigidbody = GetComponent<Rigidbody>();
-            _transform = transform;
-            anim = GetComponent<Animator>();
+            Navigator = GetComponent<Navigator>();
+            Player = FindObjectOfType<PlayerLogic>().transform;
+            Rigidbody = GetComponent<Rigidbody>();
+            Transform = transform;
+            Anim = GetComponent<Animator>();
+            Dam = GetComponent<Damageable>();
+
             swordHitbox.SetActive(false);
             shield.SetActive(false);
             kickHitbox.SetActive(false);
+
+            StateMachine = new StateMachine();
+            StateMachine.ChangeState(new IdleState(this));
         }
 
-        void Update()
-        {
-            currentStateElapsed += Time.deltaTime;
+        void Update() => StateMachine.Update();
 
-            switch (state)
-            {
-                case EnemyStates.idle:
-                    UpdateIdle();
-                    break;
-                case EnemyStates.melee:
-                    UpdateMelee();
-                    break;
-                case EnemyStates.pursue:
-                    UpdatePursue();
-                    break;
-                case EnemyStates.ranged:
-                    break;
-                case EnemyStates.dead:
-                    UpdateDead();
-                    break;
-            }
-        }
+        void FixedUpdate() => Rigidbody.linearVelocity = TargetVelocity;
 
-        private void FixedUpdate()
-        {
-            _rigidbody.linearVelocity = targetVelocity;
-        }
-
-        void UpdateIdle()
-        {
-            if (currentStateElapsed > 2.0f)
-            {
-                if (inMeleeRange)
-                    EnterMelee();
-                else
-                    AttemptBeginPursue();
-            }
-        }
-
-        bool AttemptBeginPursue()
-        {
-            if (AttemptMakePathToPlayer())
-            {
-                pathNodeIndex = 0;
-                state = EnemyStates.pursue;
-                currentStateElapsed = 0;
-
-                return true;
-            }
-
-            Debug.Log("failed attempt to pursue");
-
-            return false;
-        }
-
-        void UpdatePursue()
-        {
-            currentTargetNodePosition = navigator.PathNodes[pathNodeIndex];
-
-            Vector3 dirToNode = (currentTargetNodePosition - _transform.position);
-            dirToNode.y = 0;
-            dirToNode.Normalize();
-
-            _transform.forward = dirToNode;
-
-            float distToNode = Vector3.Distance(currentTargetNodePosition, _transform.position);
-
-            if (distToNode < 3f)
-            {
-                pathNodeIndex++;
-
-                if (pathNodeIndex >= navigator.PathNodes.Count)
-                {
-                    pathNodeIndex = 0;
-                    AttemptMakePathToPlayer();
-                    return;
-                }
-
-            }
-
-            if (inMeleeRange)
-            {
-                // do melee attack
-                if (canAttack)
-                    EnterMelee();
-                return;
-            }
-
-            targetVelocity = _transform.forward * speed;
-            targetVelocity.y = _rigidbody.linearVelocity.y;
-
-            if (currentStateElapsed > 1) // rebuild path every half second
-            {
-                pathNodeIndex = 1;
-                AttemptMakePathToPlayer();
-            }
-        }
-
-        void EnterMelee()
-        {
-            var dirToPlayer = (player.transform.position - transform.position).normalized;
-            dirToPlayer.y = 0;
-            transform.forward = dirToPlayer;
-            targetVelocity = Vector3.zero;
-            state = EnemyStates.melee;
-            currentStateElapsed = 0;
-
-            StartCoroutine(HandleMelee());
-        }
-
-        IEnumerator HandleMelee()
+        public IEnumerator HandleMelee()
         {
             swordHitbox.SetActive(true);
-            if (dam.currentHealth < dam.phaseTwoStart)
-                anim.SetTrigger("tripleSwing");
+            if (Dam.currentHealth < Dam.phaseTwoStart)
+                Anim.SetTrigger("tripleSwing");
             else
-                anim.SetTrigger("swing");
-            yield return new WaitForSeconds(1.5f);
+                Anim.SetTrigger("swing");
+            yield return new WaitForSeconds(0.5f);
             swordHitbox.SetActive(false);
         }
 
-        void UpdateMelee()
+        public void BeginBlockRequest()
         {
-            if (currentStateElapsed >= 2.0f)
-            {
-                state = EnemyStates.idle;
-            }
+            // If already blocking, do nothing
+            if (IsBlocking) return;
+            StateMachine.ChangeState(new BlockState(this));
+            IsBlocking = true;
         }
 
-        public void Death()
+        public void EndBlockRequest()
         {
-            navigator.enabled = false;
-            targetVelocity = Vector3.zero;
-            GameManager.instance.GoToNextLevel();
-            state = EnemyStates.dead;
+            // If not blocking, ignore
+            if (!IsBlocking) return;
+            StateMachine.ChangeState(new IdleState(this));
+            IsBlocking = false;
         }
 
-        void UpdateDead()
+        public void OnBlockedHit()
         {
-            //Debug.Log("in dead");
+            // Play block reaction
+            kickHitbox.SetActive(true);
+            Anim.SetTrigger("blocked");
         }
 
-        bool AttemptMakePathToPlayer()
+        internal void NotifyBlockEnded()
         {
-            return (navigator.CalculatePathToPosition(player.position));
+            IsBlocking = false;
         }
 
-        float DistanceToPlayer()
-        {
-            return Vector3.Distance(_transform.position, player.position);
-        }
 
-        public void SetInMeleeRange(bool inMeleeRange)
-        {
-            this.inMeleeRange = inMeleeRange;
-        }
 
-        public void StartBlocking()
-        {
-            canAttack = false;
-            shield.SetActive(true);
-            anim.SetTrigger("startBlock");
-        }
+        public void Death() => StateMachine.ChangeState(new DeadState(this));
+
+        public bool AttemptMakePathToPlayer() => Navigator.CalculatePathToPosition(Player.position);
+
+        public void SetInMeleeRange(bool inMeleeRange) => InMeleeRange = inMeleeRange;
+
+        public void StartBlocking() => StateMachine.ChangeState(new BlockState(this));
 
         public void BlockedAttack()
         {
             kickHitbox.SetActive(true);
-            anim.SetTrigger("blocked");
-        }
-
-        public void StopBlocking()
-        {
-            canAttack = true;
-            shield.SetActive(false);
-            kickHitbox.SetActive(false);
-            anim.SetTrigger("endBlock");
+            Anim.SetTrigger("blocked");
         }
     }
 }
