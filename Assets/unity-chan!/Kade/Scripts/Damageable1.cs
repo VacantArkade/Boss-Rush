@@ -19,15 +19,15 @@ namespace Kade
         [SerializeField] AudioClipCollection hurtSounds;
         [SerializeField] AudioClipCollection deathSounds;
 
-        [SerializeField] float phaseTwoStart;
-        [SerializeField] float phaseThreeStart;
+        [SerializeField] public float phaseTwoStart;
+        [SerializeField] public float phaseThreeStart;
 
         public UnityEvent<int> OnInitialize;
-        public UnityEvent<Damage> OnHit;
+        public UnityEvent<Kade.Damage> OnHit;
         public UnityEvent OnDeath;
         public UnityEvent<int, int> OnHealthChanged;
 
-        int currentHealth;
+        public int currentHealth;
         float timeSinceHit = 0;
 
         float blockTimer = 0; //How long block has happened
@@ -76,11 +76,13 @@ namespace Kade
             }
         }
 
-        public bool Hit(Damage damage)
+        public bool Hit(Kade.Damage damage)
         {
             if (blocking)
             {
                 chanScript.BlockedAttack();
+                blocking = false;
+
                 return false;
             }
 
@@ -178,7 +180,7 @@ namespace Kade
         [ContextMenu("Test Hit")]
         public void TestHit()
         {
-            Damage test = new Damage();
+            Kade.Damage test = new Kade.Damage();
             test.amount = 1;
             test.direction = Vector3.zero;
             test.knockbackForce = 0;
