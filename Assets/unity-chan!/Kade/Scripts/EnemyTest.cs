@@ -13,7 +13,11 @@ namespace Kade
         public EnemyState(EnemyTest enemy) { this.enemy = enemy; }
 
         public virtual void Enter() { elapsedTime = 0f; }
-        public virtual void Update() { elapsedTime += Time.deltaTime; }
+        public virtual void Update()
+        {
+            if (enemy.IsFrozen) return;
+            elapsedTime += Time.deltaTime;
+        }
         public virtual void Exit() { }
     }
 
@@ -30,6 +34,10 @@ namespace Kade
             {
                 if (enemy.InMeleeRange && enemy.CanAttack)
                     enemy.StateMachine.ChangeState(new MeleeState(enemy));
+
+                else if (!enemy.InMeleeRange && enemy.CanAttack && enemy.Dam.currentHealth < enemy.Dam.phaseTwoStart && Time.time - enemy.LastTeleportTime >= enemy.TeleportCooldown)
+                    enemy.StateMachine.ChangeState(new TeleportRangedState(enemy));
+
                 else if (!enemy.InMeleeRange)
                     enemy.StateMachine.ChangeState(new PursueState(enemy));
             }
@@ -76,6 +84,15 @@ namespace Kade
                 enemy.Anim.SetBool("isMoving", false);
                 enemy.StateMachine.ChangeState(new MeleeState(enemy));
                 return;
+            }
+
+            if (!enemy.InMeleeRange && enemy.CanAttack)
+            {
+                if (enemy.Dam.currentHealth < enemy.Dam.phaseTwoStart && Time.time - enemy.LastTeleportTime >= enemy.TeleportCooldown)
+                {
+                    enemy.Anim.SetBool("isMoving", false);
+                    enemy.StateMachine.ChangeState(new TeleportRangedState(enemy));
+                }
             }
 
             enemy.TargetVelocity = enemy.Transform.forward * enemy.Speed;
@@ -137,10 +154,8 @@ namespace Kade
         {
             base.Update();
 
-            // Keep facing the player while blocking
             FacePlayer();
 
-            // Exit after duration
             if (elapsedTime >= blockDuration)
             {
                 enemy.Anim.SetBool("isBlocking", false);
@@ -167,6 +182,118 @@ namespace Kade
                 dir.Normalize();
                 enemy.Transform.forward = dir;
             }
+        }
+    }
+
+    // Teleport Ranged State
+    public class TeleportRangedState : EnemyState
+    {
+        public TeleportRangedState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.TargetVelocity = Vector3.zero;
+
+            enemy.StartCoroutine(TeleportSequence());
+        }
+
+        private IEnumerator TeleportSequence()
+        {
+            enemy.SetFrozen(true);
+
+            if (enemy.TeleportBubblePrefab != null)
+                GameObject.Instantiate(enemy.TeleportBubblePrefab, enemy.Transform.position, Quaternion.identity);
+
+            yield return new WaitForSeconds(0.5f);
+
+            Vector3 dirToPlayer = (enemy.Player.position - enemy.Transform.position).normalized;
+            dirToPlayer.y = 0;
+            Vector3 teleportPos = enemy.Player.position - dirToPlayer * 1.5f;
+
+            enemy.Transform.position = teleportPos;
+            enemy.Transform.forward = dirToPlayer;
+
+            if (enemy.TeleportBubblePrefab != null)
+                GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
+
+            enemy.Anim.SetTrigger("teleport");
+            enemy.LastTeleportTime = Time.time;
+
+            yield return new WaitForSeconds(0.5f);
+
+            enemy.SetFrozen(false);
+            enemy.StateMachine.ChangeState(new MeleeState(enemy));
+        }
+    }
+
+    public class UltimateMoveState : EnemyState
+    {
+        public UltimateMoveState(EnemyTest enemy) : base(enemy) { }
+
+        public override void Enter()
+        {
+            base.Enter();
+            enemy.TargetVelocity = Vector3.zero;
+            enemy.Rigidbody.linearVelocity = Vector3.zero;
+
+            enemy.SetFrozen(true);
+
+            PlayerLogic playerLogic = enemy.Player.GetComponent<PlayerLogic>();
+            if (playerLogic != null)
+                playerLogic.canControl = false;
+
+            enemy.Anim.SetTrigger("grab");
+
+            enemy.StartCoroutine(UltimateSequence(playerLogic));
+        }
+
+        private IEnumerator UltimateSequence(PlayerLogic playerLogic)
+        {
+            yield return new WaitForSeconds(0.8f);
+
+            TimeStopManager.Instance.EnableTimeStopEffect(true, 1f);
+
+
+            for (int i = 0; i < 3; i++)
+            {
+                yield return TeleportAttack();
+                yield return new WaitForSeconds(0.3f);
+            }
+
+            enemy.Anim.SetTrigger("kick");
+            yield return new WaitForSeconds(0.5f);
+
+            TimeStopManager.Instance.EnableTimeStopEffect(false, 1f);
+
+            if (playerLogic != null)
+                playerLogic.canControl = true;
+
+            enemy.SetFrozen(false);
+
+            enemy.StateMachine.ChangeState(new IdleState(enemy));
+        }
+
+        private IEnumerator TeleportAttack()
+        {
+            if (enemy.TeleportBubblePrefab != null)
+                GameObject.Instantiate(enemy.TeleportBubblePrefab, enemy.Transform.position, Quaternion.identity);
+
+            yield return new WaitForSeconds(0.3f);
+
+            Vector3 dirToPlayer = (enemy.Player.position - enemy.Transform.position).normalized;
+            dirToPlayer.y = 0;
+            Vector3 teleportPos = enemy.Player.position - dirToPlayer * 1.5f;
+
+            enemy.Transform.position = teleportPos;
+            enemy.Transform.forward = dirToPlayer;
+
+            if (enemy.TeleportBubblePrefab != null)
+                GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
+
+            enemy.Anim.SetTrigger("meleeAttack");
+
+            yield return new WaitForSeconds(0.4f);
         }
     }
 
@@ -206,7 +333,9 @@ namespace Kade
         [SerializeField] GameObject swordHitbox;
         [SerializeField] GameObject kickHitbox;
         [SerializeField] float speed;
+        [SerializeField] GameObject teleportBubblePrefab;
 
+        public GameObject TeleportBubblePrefab => teleportBubblePrefab;
         public Damageable Dam { get; private set; }
         public Navigator Navigator { get; private set; }
         public Transform Transform { get; private set; }
@@ -222,6 +351,9 @@ namespace Kade
         public bool InMeleeRange { get; private set; }
         public bool CanAttack { get; set; } = true;
         public bool IsBlocking { get; private set; }
+        public bool IsFrozen { get; private set; } = false;
+        public float LastTeleportTime { get; set; } = -999f;
+        public float TeleportCooldown = 10f;
 
         public GameObject Shield => shield;
         public GameObject SwordHitbox => swordHitbox;
@@ -246,7 +378,15 @@ namespace Kade
 
         void Update() => StateMachine.Update();
 
-        void FixedUpdate() => Rigidbody.linearVelocity = TargetVelocity;
+        void FixedUpdate()
+        {
+            if (IsFrozen)
+            {
+                Rigidbody.linearVelocity = Vector3.zero;
+                return;
+            }
+            Rigidbody.linearVelocity = TargetVelocity;
+        }
 
         public IEnumerator HandleMelee()
         {
@@ -266,7 +406,6 @@ namespace Kade
 
         public void BeginBlockRequest()
         {
-            // If already blocking, do nothing
             if (IsBlocking) return;
             StateMachine.ChangeState(new BlockState(this));
             IsBlocking = true;
@@ -274,7 +413,6 @@ namespace Kade
 
         public void EndBlockRequest()
         {
-            // If not blocking, ignore
             if (!IsBlocking) return;
             StateMachine.ChangeState(new IdleState(this));
             IsBlocking = false;
@@ -282,7 +420,6 @@ namespace Kade
 
         public void OnBlockedHit()
         {
-            // Play block reaction
             kickHitbox.SetActive(true);
             Anim.SetTrigger("blocked");
         }
@@ -292,6 +429,21 @@ namespace Kade
             IsBlocking = false;
         }
 
+        public void SetFrozen(bool frozen)
+        {
+            IsFrozen = frozen;
+            if (frozen)
+            {
+                TargetVelocity = Vector3.zero;
+                Rigidbody.linearVelocity = Vector3.zero;
+                Navigator.enabled = false;
+                Anim.SetBool("isMoving", false);
+            }
+            else
+            {
+                Navigator.enabled = true;
+            }
+        }
 
 
         public void Death() => StateMachine.ChangeState(new DeadState(this));

@@ -976,6 +976,8 @@ MonoBehaviour:
   swordHitbox: {fileID: 75215474}
   kickHitbox: {fileID: 971167038}
   speed: 5
+  teleportEffect: {fileID: 1881720908210969295, guid: 314efce8493b33b4bb10d801e1691668, type: 3}
+  TeleportCooldown: 10
 --- !u!114 &544976856
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1071,6 +1073,8 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   currentHealth: 0
+  startShield: 5
+  hitThreshold: 3
 --- !u!136 &544976861
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -2614,6 +2618,8 @@ MonoBehaviour:
           m_BoolArgument: 0
         m_CallState: 2
   currentHealth: 0
+  startShield: 5
+  hitThreshold: 3
 --- !u!1 &1590502503
 GameObject:
   m_ObjectHideFlags: 0

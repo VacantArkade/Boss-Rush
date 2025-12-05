@@ -41,7 +41,7 @@ public class PlayerLogic : MonoBehaviour
     // movement variables
     Vector3 moveVelocity;
     bool grounded = false;
-    bool canControl = true;
+    public bool canControl = true;
 
     // combat variables
     bool aiming = false;
