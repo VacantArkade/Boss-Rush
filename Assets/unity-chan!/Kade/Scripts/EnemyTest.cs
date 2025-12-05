@@ -25,6 +25,7 @@ namespace Kade
         public override void Update()
         {
             base.Update();
+            //enemy.Anim.SetTrigger("switchIdle");
             if (elapsedTime > 2.0f)
             {
                 if (enemy.InMeleeRange && enemy.CanAttack)
@@ -55,6 +56,7 @@ namespace Kade
             dirToNode.y = 0;
             dirToNode.Normalize();
 
+            enemy.Anim.SetBool("isMoving", true);
             enemy.Transform.forward = dirToNode;
             float distToNode = Vector3.Distance(targetNode, enemy.Transform.position);
 
@@ -71,6 +73,7 @@ namespace Kade
 
             if (enemy.InMeleeRange && enemy.CanAttack)
             {
+                enemy.Anim.SetBool("isMoving", false);
                 enemy.StateMachine.ChangeState(new MeleeState(enemy));
                 return;
             }
@@ -124,7 +127,8 @@ namespace Kade
             base.Enter();
             enemy.CanAttack = false;
             enemy.Shield.SetActive(true);
-            enemy.Anim.SetTrigger("startBlock");
+            //enemy.Anim.SetTrigger("startBlock");
+            enemy.Anim.SetBool("isBlocking", true);
             enemy.TargetVelocity = Vector3.zero;
             FacePlayer();
         }
@@ -139,6 +143,7 @@ namespace Kade
             // Exit after duration
             if (elapsedTime >= blockDuration)
             {
+                enemy.Anim.SetBool("isBlocking", false);
                 enemy.StateMachine.ChangeState(new IdleState(enemy));
             }
         }
@@ -148,7 +153,8 @@ namespace Kade
             enemy.CanAttack = true;
             enemy.Shield.SetActive(false);
             enemy.KickHitbox.SetActive(false);
-            enemy.Anim.SetTrigger("endBlock");
+            enemy.Anim.SetBool("isBlocking", false);
+            //enemy.Anim.SetTrigger("endBlock");
             enemy.NotifyBlockEnded();
         }
 
@@ -212,6 +218,7 @@ namespace Kade
         public Vector3 TargetVelocity { get; set; }
         public int PathNodeIndex { get; set; }
         public float Speed => speed;
+        public bool isMoving { get; private set; }
         public bool InMeleeRange { get; private set; }
         public bool CanAttack { get; set; } = true;
         public bool IsBlocking { get; private set; }
@@ -245,10 +252,15 @@ namespace Kade
         {
             swordHitbox.SetActive(true);
             if (Dam.currentHealth < Dam.phaseTwoStart)
+            {
                 Anim.SetTrigger("tripleSwing");
+                yield return new WaitForSeconds(3.5f);
+            }
             else
+            {
                 Anim.SetTrigger("swing");
-            yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSeconds(0.5f);
+            }
             swordHitbox.SetActive(false);
         }
 
@@ -294,6 +306,7 @@ namespace Kade
         {
             kickHitbox.SetActive(true);
             Anim.SetTrigger("blocked");
+            Anim.SetBool("isBlocking", false);
         }
     }
 }
