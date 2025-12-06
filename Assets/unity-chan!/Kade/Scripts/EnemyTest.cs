@@ -1,4 +1,5 @@
 using System.Collections;
+using JetBrains.Annotations;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -29,7 +30,6 @@ namespace Kade
         public override void Update()
         {
             base.Update();
-            //enemy.Anim.SetTrigger("switchIdle");
             if (elapsedTime > 2.0f)
             {
                 if (enemy.InMeleeRange && enemy.CanAttack)
@@ -172,6 +172,20 @@ namespace Kade
             //enemy.Anim.SetTrigger("endBlock");
             enemy.NotifyBlockEnded();
         }
+        public void OnHitWhileBlocking()
+        {
+            Exit();
+            enemy.Anim.SetTrigger("blocked");
+            enemy.StateMachine.ChangeState(new IdleState(enemy));
+        }
+
+        public void InterruptWithBlocked()
+        {
+            enemy.Anim.SetBool("isBlocking", false);
+
+            enemy.Anim.SetTrigger("blocked");
+        }
+
 
         private void FacePlayer()
         {
@@ -179,8 +193,8 @@ namespace Kade
             dir.y = 0f;
             if (dir.sqrMagnitude > 0.0001f)
             {
-                dir.Normalize();
-                enemy.Transform.forward = dir;
+                Quaternion lookRot = Quaternion.LookRotation(dir, Vector3.up);
+                enemy.Transform.rotation = lookRot;
             }
         }
     }
@@ -217,7 +231,7 @@ namespace Kade
             if (enemy.TeleportBubblePrefab != null)
                 GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
 
-            enemy.Anim.SetTrigger("teleport");
+            //enemy.Anim.SetTrigger("teleport");
             enemy.LastTeleportTime = Time.time;
 
             yield return new WaitForSeconds(0.5f);
@@ -336,11 +350,25 @@ namespace Kade
         public override void Enter()
         {
             base.Enter();
-            enemy.Navigator.enabled = false;
+
+            enemy.StopAllCoroutines();
+
+            if (enemy.Navigator != null)
+                enemy.Navigator.enabled = false;
+
             enemy.TargetVelocity = Vector3.zero;
+
+            // Play death animation
+            enemy.Anim.SetTrigger("dead");
+
+            // If you want level progression tied to death:
             GameManager.instance.GoToNextLevel();
+
+            
         }
+
     }
+
 
     // State Machine
     public class StateMachine
@@ -393,6 +421,11 @@ namespace Kade
 
         private float ultimateCooldown = 0f;
 
+        // Attack control fields
+        [SerializeField] private float attackCooldown = 2f; // editable in Inspector
+        private float lastAttackTime = -Mathf.Infinity;     // tracks last attack end
+        private bool isAttacking = false;                   // locks state machine during attack
+
         void Start()
         {
             Navigator = GetComponent<Navigator>();
@@ -426,6 +459,12 @@ namespace Kade
                     ultimateCooldown = 60f;
                 }
             }
+
+            // Gate melee attack call
+            if (InMeleeRange && CanAttack && !isAttacking && Time.time >= lastAttackTime + attackCooldown)
+            {
+                StartCoroutine(HandleMelee());
+            }
         }
 
         void FixedUpdate()
@@ -442,18 +481,52 @@ namespace Kade
 
         public IEnumerator HandleMelee()
         {
+            if (isAttacking) yield break; // safety
+            isAttacking = true;
+
             swordHitbox.SetActive(true);
+
             if (Dam.currentHealth < Dam.phaseTwoStart)
             {
                 Anim.SetTrigger("tripleSwing");
-                yield return new WaitForSeconds(3.5f);
+
+                float elapsed = 0f;
+                const float duration = 3.5f; // TripleSwing length
+                const float moveSpeed = 3f;
+
+                while (elapsed < duration)
+                {
+                    elapsed += Time.deltaTime;
+
+                    // Move toward player during attack
+                    Vector3 dir = Player.position - Transform.position;
+                    dir.y = 0f;
+                    if (dir.sqrMagnitude > 0.001f)
+                    {
+                        dir.Normalize();
+                        Rigidbody.MovePosition(Transform.position + dir * moveSpeed * Time.deltaTime);
+                    }
+
+                    yield return null;
+                }
+
+                Anim.ResetTrigger("tripleSwing");
             }
             else
             {
                 Anim.SetTrigger("swing");
                 yield return new WaitForSeconds(0.5f);
+                Anim.ResetTrigger("swing");
             }
+
             swordHitbox.SetActive(false);
+
+            // Unlock and set cooldown
+            isAttacking = false;
+            lastAttackTime = Time.time;
+
+            // Always return to Pursue after attack
+            StateMachine.ChangeState(new PursueState(this));
         }
 
         public void BeginBlockRequest()
@@ -472,14 +545,49 @@ namespace Kade
 
         public void OnBlockedHit()
         {
-            kickHitbox.SetActive(true);
-            Anim.SetTrigger("blocked");
+            if (StateMachine.CurrentState is BlockState blockState)
+            {
+                blockState.InterruptWithBlocked();
+            }
+        }
+
+        public void OnKickFinished()
+        {
+            Shield.SetActive(false);
+            StateMachine.ChangeState(new IdleState(this));
+
+            var damageable = GetComponent<Damageable>();
+            if (damageable != null)
+            {
+                damageable.ResetBlockSequence();
+            }
         }
 
         internal void NotifyBlockEnded()
         {
             IsBlocking = false;
         }
+
+        public void EnableSwordHitbox()
+        {
+            swordHitbox.SetActive(true);
+        }
+
+        public void DisableSwordHitbox()
+        {
+            swordHitbox.SetActive(false);
+        }
+
+        public void EnableKickHitbox()
+        {
+            kickHitbox.SetActive(true);
+        }
+
+        public void DisableKickHitbox()
+        {
+            kickHitbox.SetActive(false);
+        }
+
 
         public void SetFrozen(bool frozen)
         {

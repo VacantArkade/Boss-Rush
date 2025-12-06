@@ -8,7 +8,6 @@ namespace Kade
     public class Damageable : MonoBehaviour
     {
         EnemyTest chanScript;
-        [SerializeField] Bar healthBar;
         Transform player;
 
         [SerializeField] int maxHealth;
@@ -48,9 +47,6 @@ namespace Kade
             OnHealthChanged?.Invoke(maxHealth, maxHealth);
 
             player = FindObjectOfType<PlayerLogic>().transform;
-
-            if (isUnityChan)
-                healthBar.SetMax(maxHealth);
         }
 
         private void Update()
@@ -78,6 +74,7 @@ namespace Kade
             if (isUnityChan && chanScript != null && chanScript.IsBlocking)
             {
                 chanScript.OnBlockedHit();
+                StartBlockFlash(0.15f);
                 return false;
             }
 
@@ -105,9 +102,6 @@ namespace Kade
             }
 
             currentHealth -= damage.amount;
-
-            if (isUnityChan)
-                healthBar.UpdateBar(damage.amount, currentHealth);
 
             OnHit?.Invoke(damage);
             OnHealthChanged?.Invoke(damage.amount, currentHealth);
@@ -143,6 +137,34 @@ namespace Kade
 
             foreach (var renderer in renderers)
                 StartCoroutine(HandleFlashMaterialSwap(renderer));
+        }
+
+        public void StartBlockFlash(float duration = 0.15f)
+        {
+            foreach (var renderer in renderers)
+                StartCoroutine(HandleBlockFlash(renderer, duration));
+        }
+
+        public void ResetBlockSequence()
+        {
+            sequenceHits = 0;
+            sequenceTimer = 0f;
+        }
+
+        private IEnumerator HandleBlockFlash(Renderer renderer, float duration)
+        {
+            Material[] originalMats = new Material[renderer.materials.Length];
+            for (int i = 0; i < originalMats.Length; i++)
+                originalMats[i] = renderer.materials[i];
+
+            Material[] newMats = new Material[renderer.materials.Length];
+            for (int i = 0; i < newMats.Length; i++)
+
+            renderer.materials = newMats;
+
+            yield return new WaitForSeconds(duration);
+
+            renderer.materials = originalMats;
         }
 
         IEnumerator HandleFlashMaterialSwap(Renderer renderer)
