@@ -31,7 +31,6 @@ namespace Kade
         public int currentHealth;
         float timeSinceHit = 0;
 
-        // Sequence-based blocking
         float sequenceTimer = 0f;   // Counter window for sequence hits
         int sequenceHits = 0;       // Hits in the current sequence
         [SerializeField] float startShield = 5f;  // Window length to accumulate hits
@@ -41,7 +40,6 @@ namespace Kade
 
         void Start()
         {
-            // Determine if this is UnityChan
             chanScript = GetComponent<EnemyTest>();
             isUnityChan = (chanScript != null);
             if (isUnityChan)
