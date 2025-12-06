@@ -234,26 +234,24 @@ namespace Kade
         public override void Enter()
         {
             base.Enter();
+
             enemy.TargetVelocity = Vector3.zero;
             enemy.Rigidbody.linearVelocity = Vector3.zero;
 
-            enemy.SetFrozen(true);
+            enemy.Anim.SetTrigger("grab");
+
+            enemy.StartCoroutine(UltimateSequence());
+        }
+
+        private IEnumerator UltimateSequence()
+        {
+            yield return new WaitForSeconds(0.8f);
 
             PlayerLogic playerLogic = enemy.Player.GetComponent<PlayerLogic>();
             if (playerLogic != null)
                 playerLogic.canControl = false;
 
-            enemy.Anim.SetTrigger("grab");
-
-            enemy.StartCoroutine(UltimateSequence(playerLogic));
-        }
-
-        private IEnumerator UltimateSequence(PlayerLogic playerLogic)
-        {
-            yield return new WaitForSeconds(0.8f);
-
             TimeStopManager.Instance.EnableTimeStopEffect(true, 1f);
-
 
             for (int i = 0; i < 3; i++)
             {
@@ -268,8 +266,6 @@ namespace Kade
 
             if (playerLogic != null)
                 playerLogic.canControl = true;
-
-            enemy.SetFrozen(false);
 
             enemy.StateMachine.ChangeState(new IdleState(enemy));
         }
@@ -291,11 +287,12 @@ namespace Kade
             if (enemy.TeleportBubblePrefab != null)
                 GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
 
-            enemy.Anim.SetTrigger("meleeAttack");
+            enemy.Anim.SetTrigger("swing");
 
             yield return new WaitForSeconds(0.4f);
         }
     }
+
 
     // Dead State
     public class DeadState : EnemyState
