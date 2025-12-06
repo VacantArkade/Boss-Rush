@@ -8,6 +8,7 @@ namespace Kade
     public class Damageable : MonoBehaviour
     {
         EnemyTest chanScript;
+        Bar healthBar;
         Transform player;
 
         [SerializeField] int maxHealth;
@@ -43,6 +44,8 @@ namespace Kade
             // Determine if this is UnityChan
             chanScript = GetComponent<EnemyTest>();
             isUnityChan = (chanScript != null);
+            if (isUnityChan)
+                healthBar.SetMax(maxHealth);
 
             currentHealth = maxHealth;
             OnInitialize?.Invoke(maxHealth);
@@ -103,6 +106,9 @@ namespace Kade
             }
 
             currentHealth -= damage.amount;
+
+            if (isUnityChan)
+                healthBar.UpdateBar(damage.amount, currentHealth);
 
             OnHit?.Invoke(damage);
             OnHealthChanged?.Invoke(damage.amount, currentHealth);
