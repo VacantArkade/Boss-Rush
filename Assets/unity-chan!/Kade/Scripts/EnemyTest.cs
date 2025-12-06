@@ -238,6 +238,14 @@ namespace Kade
             enemy.TargetVelocity = Vector3.zero;
             enemy.Rigidbody.linearVelocity = Vector3.zero;
 
+            Transform handAnchor = enemy.Transform.Find("HandAnchor");
+            if (handAnchor != null)
+            {
+                enemy.Player.SetParent(handAnchor);
+                enemy.Player.localPosition = Vector3.zero;
+                enemy.Player.localRotation = Quaternion.identity;
+            }
+
             enemy.Anim.SetTrigger("grab");
 
             enemy.StartCoroutine(UltimateSequence());
@@ -256,7 +264,7 @@ namespace Kade
             for (int i = 0; i < 3; i++)
             {
                 yield return TeleportAttack();
-                yield return new WaitForSeconds(0.3f);
+                yield return new WaitForSeconds(1f);
             }
 
             enemy.Anim.SetTrigger("kick");
@@ -267,32 +275,58 @@ namespace Kade
             if (playerLogic != null)
                 playerLogic.canControl = true;
 
+            enemy.Player.SetParent(null);
+
             enemy.StateMachine.ChangeState(new IdleState(enemy));
         }
 
         private IEnumerator TeleportAttack()
         {
+            GameObject bubble = null;
             if (enemy.TeleportBubblePrefab != null)
-                GameObject.Instantiate(enemy.TeleportBubblePrefab, enemy.Transform.position, Quaternion.identity);
+                bubble = GameObject.Instantiate(enemy.TeleportBubblePrefab, enemy.Transform.position, Quaternion.identity);
 
-            yield return new WaitForSeconds(0.3f);
+            float growTime = 0.3f;
+            float elapsed = 0f;
+            Vector3 startScale = Vector3.zero;
+            Vector3 maxScale = Vector3.one * 1f;
 
-            Vector3 dirToPlayer = (enemy.Player.position - enemy.Transform.position).normalized;
-            dirToPlayer.y = 0;
-            Vector3 teleportPos = enemy.Player.position - dirToPlayer * 1.5f;
+            while (elapsed < growTime)
+            {
+                elapsed += Time.deltaTime;
+                bubble.transform.localScale = Vector3.Lerp(startScale, maxScale, elapsed / growTime);
+                yield return null;
+            }
 
+            float radius = Random.Range(1.5f, 2.5f);
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            Vector3 offset = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle)) * radius;
+
+            Vector3 teleportPos = enemy.Player.position + offset;
             enemy.Transform.position = teleportPos;
-            enemy.Transform.forward = dirToPlayer;
+            enemy.Transform.LookAt(enemy.Player);
 
             if (enemy.TeleportBubblePrefab != null)
-                GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
+            {
+                GameObject arrivalBubble = GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
+
+                float shrinkTime = 1f;
+                float elapsedShrink = 0f;
+                Vector3 startArrival = arrivalBubble.transform.localScale;
+
+                while (elapsedShrink < shrinkTime)
+                {
+                    elapsedShrink += Time.deltaTime;
+                    arrivalBubble.transform.localScale = Vector3.Lerp(startArrival, Vector3.zero, elapsedShrink / shrinkTime);
+                    yield return null;
+                }
+            }
 
             enemy.Anim.SetTrigger("swing");
 
-            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForSeconds(1f);
         }
     }
-
 
     // Dead State
     public class DeadState : EnemyState
@@ -312,6 +346,7 @@ namespace Kade
     public class StateMachine
     {
         private EnemyState currentState;
+        public EnemyState CurrentState => currentState;
         public void ChangeState(EnemyState newState)
         {
             currentState?.Exit();
@@ -356,6 +391,8 @@ namespace Kade
         public GameObject SwordHitbox => swordHitbox;
         public GameObject KickHitbox => kickHitbox;
 
+        private float ultimateCooldown = 0f;
+
         void Start()
         {
             Navigator = GetComponent<Navigator>();
@@ -373,7 +410,23 @@ namespace Kade
             StateMachine.ChangeState(new IdleState(this));
         }
 
-        void Update() => StateMachine.Update();
+        void Update()
+        {
+            StateMachine.Update();
+
+            if (ultimateCooldown > 0f)
+                ultimateCooldown -= Time.deltaTime;
+
+            if (Dam.currentHealth <= Dam.phaseThreeStart &&
+                ultimateCooldown <= 0f)
+            {
+                if (!(StateMachine.CurrentState is UltimateMoveState))
+                {
+                    StateMachine.ChangeState(new UltimateMoveState(this));
+                    ultimateCooldown = 60f;
+                }
+            }
+        }
 
         void FixedUpdate()
         {
@@ -383,6 +436,8 @@ namespace Kade
                 return;
             }
             Rigidbody.linearVelocity = TargetVelocity;
+            isMoving = TargetVelocity.magnitude > 0.1f;
+            Anim.SetBool("isMoving", isMoving);
         }
 
         public IEnumerator HandleMelee()
@@ -441,7 +496,6 @@ namespace Kade
                 Navigator.enabled = true;
             }
         }
-
 
         public void Death() => StateMachine.ChangeState(new DeadState(this));
 
