@@ -8,6 +8,12 @@ public class TimeStopManager : MonoBehaviour
 
     public Volume timeStopVolume;
 
+    [SerializeField] GameObject collision;
+    [SerializeField] GameObject trigger;
+
+    [SerializeField] Material orig;
+    [SerializeField] Material timeStopped;
+
     void Awake()
     {
         Instance = this;

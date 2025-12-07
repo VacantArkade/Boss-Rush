@@ -772,6 +772,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timeStopVolume: {fileID: 353574808}
+  collision: {fileID: 0}
+  trigger: {fileID: 0}
+  orig: {fileID: 0}
+  timeStopped: {fileID: 0}
 --- !u!4 &357985751 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3071103936428873727, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
@@ -1146,7 +1150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb273e0f3a83ed34a8217044c573614e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 40
+  maxHealth: 19
   iTime: 0.5
   flashMaterial: {fileID: 2100000, guid: 9e878199917d34949949dff4be7c396d, type: 2}
   renderers: []
@@ -1555,6 +1559,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timeStopVolume: {fileID: 353574808}
+  collision: {fileID: 1280551575}
+  trigger: {fileID: 1127643172}
+  orig: {fileID: 2100000, guid: a9074bd87b3232e4b86be8f6b6d98a32, type: 2}
+  timeStopped: {fileID: 2100000, guid: f32d7a909b7c3884692ec9341b2e8c73, type: 2}
 --- !u!4 &780123825 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 400328, guid: 49f2055d53eeb4e5a92af590a44bddee, type: 3}
@@ -2325,6 +2333,16 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 400286, guid: 49f2055d53eeb4e5a92af590a44bddee, type: 3}
   m_PrefabInstance: {fileID: 1047282178}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1127643172 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 294187519054458731, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
+  m_PrefabInstance: {fileID: 7618333120010288130}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1280551575 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 478223656526756746, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
+  m_PrefabInstance: {fileID: 7618333120010288130}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1307766236
 PrefabInstance:
@@ -3952,6 +3970,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 814576404}
     m_Modifications:
+    - target: {fileID: 1146796945398074324, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a9074bd87b3232e4b86be8f6b6d98a32, type: 2}
     - target: {fileID: 3071103936428873727, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
       propertyPath: m_LocalPosition.x
       value: 16.768164
@@ -3996,6 +4018,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Death Zone
       objectReference: {fileID: 0}
+    - target: {fileID: 8553092785574879524, guid: 9bb04b234d4e5ff4586ce5a3068e40f5, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: a9074bd87b3232e4b86be8f6b6d98a32, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

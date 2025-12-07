@@ -18,6 +18,11 @@ namespace Kade
         {
             if (enemy.IsFrozen) return;
             elapsedTime += Time.deltaTime;
+
+            if (enemy.Dam.currentHealth <= 0)
+            {
+                enemy.Anim.SetBool("isDead", true);
+            }
         }
         public virtual void Exit() { }
     }
@@ -231,7 +236,6 @@ namespace Kade
             if (enemy.TeleportBubblePrefab != null)
                 GameObject.Instantiate(enemy.TeleportBubblePrefab, teleportPos, Quaternion.identity);
 
-            //enemy.Anim.SetTrigger("teleport");
             enemy.LastTeleportTime = Time.time;
 
             yield return new WaitForSeconds(0.5f);
@@ -272,6 +276,8 @@ namespace Kade
             PlayerLogic playerLogic = enemy.Player.GetComponent<PlayerLogic>();
             if (playerLogic != null)
                 playerLogic.canControl = false;
+
+            playerLogic.GetComponent<CharacterController>().Move(Vector3.zero);
 
             TimeStopManager.Instance.EnableTimeStopEffect(true, 1f);
 
@@ -515,17 +521,15 @@ namespace Kade
             else
             {
                 Anim.SetTrigger("swing");
-                yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSeconds(1.5f);
                 Anim.ResetTrigger("swing");
             }
 
             swordHitbox.SetActive(false);
 
-            // Unlock and set cooldown
             isAttacking = false;
             lastAttackTime = Time.time;
 
-            // Always return to Pursue after attack
             StateMachine.ChangeState(new PursueState(this));
         }
 
