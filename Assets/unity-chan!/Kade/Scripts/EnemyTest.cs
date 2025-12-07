@@ -18,11 +18,6 @@ namespace Kade
         {
             if (enemy.IsFrozen) return;
             elapsedTime += Time.deltaTime;
-
-            if (enemy.Dam.currentHealth <= 0)
-            {
-                enemy.Anim.SetBool("isDead", true);
-            }
         }
         public virtual void Exit() { }
     }
@@ -149,7 +144,7 @@ namespace Kade
             base.Enter();
             enemy.CanAttack = false;
             enemy.Shield.SetActive(true);
-            //enemy.Anim.SetTrigger("startBlock");
+            enemy.SwordHitbox.SetActive(false);
             enemy.Anim.SetBool("isBlocking", true);
             enemy.TargetVelocity = Vector3.zero;
             FacePlayer();
@@ -174,7 +169,6 @@ namespace Kade
             enemy.Shield.SetActive(false);
             enemy.KickHitbox.SetActive(false);
             enemy.Anim.SetBool("isBlocking", false);
-            //enemy.Anim.SetTrigger("endBlock");
             enemy.NotifyBlockEnded();
         }
         public void OnHitWhileBlocking()
@@ -190,7 +184,6 @@ namespace Kade
 
             enemy.Anim.SetTrigger("blocked");
         }
-
 
         private void FacePlayer()
         {
@@ -275,9 +268,14 @@ namespace Kade
 
             PlayerLogic playerLogic = enemy.Player.GetComponent<PlayerLogic>();
             if (playerLogic != null)
+            {
+                playerLogic.StopMovement();
                 playerLogic.canControl = false;
+                playerLogic.StopMovement();
+            }
 
             playerLogic.GetComponent<CharacterController>().Move(Vector3.zero);
+            playerLogic.GetComponentInChildren<Animator>().speed = 0f;
 
             TimeStopManager.Instance.EnableTimeStopEffect(true, 1f);
 
@@ -293,7 +291,11 @@ namespace Kade
             TimeStopManager.Instance.EnableTimeStopEffect(false, 1f);
 
             if (playerLogic != null)
+            {
+                playerLogic.GetComponentInChildren<Animator>().speed = 1f;
                 playerLogic.canControl = true;
+
+            }
 
             enemy.Player.SetParent(null);
 
@@ -342,6 +344,7 @@ namespace Kade
                 }
             }
 
+            enemy.SwordHitbox.SetActive(true);
             enemy.Anim.SetTrigger("swing");
 
             yield return new WaitForSeconds(1f);
@@ -363,18 +366,36 @@ namespace Kade
                 enemy.Navigator.enabled = false;
 
             enemy.TargetVelocity = Vector3.zero;
+            enemy.Rigidbody.linearVelocity = Vector3.zero;
 
-            // Play death animation
             enemy.Anim.SetTrigger("dead");
 
-            // If you want level progression tied to death:
+            enemy.StartCoroutine(DisableAnimatorAfterDeath(enemy));
+
+            if (enemy.SwordHitbox != null) enemy.SwordHitbox.SetActive(false);
+            if (enemy.KickHitbox != null) enemy.KickHitbox.SetActive(false);
+            if (enemy.Shield != null) enemy.Shield.SetActive(false);
+
             GameManager.instance.GoToNextLevel();
-
-            
         }
+        private IEnumerator DisableAnimatorAfterDeath(EnemyTest enemy)
+        {
+            float clipLength = 0f;
+            RuntimeAnimatorController rac = enemy.Anim.runtimeAnimatorController;
+            foreach (var clip in rac.animationClips)
+            {
+                if (clip.name == "DAMAGED01")
+                {
+                    clipLength = clip.length;
+                    break;
+                }
+            }
 
+            yield return new WaitForSeconds(clipLength);
+
+            enemy.Anim.enabled = false;
+        }
     }
-
 
     // State Machine
     public class StateMachine
@@ -400,6 +421,10 @@ namespace Kade
         [SerializeField] GameObject kickHitbox;
         [SerializeField] float speed;
         [SerializeField] GameObject teleportBubblePrefab;
+        PlayerLogic playerLogic;
+        private CharacterController playerController;
+        private Animator playerAnim;
+        private Vector3 frozenPosition;
 
         public GameObject TeleportBubblePrefab => teleportBubblePrefab;
         public Damageable Dam { get; private set; }
@@ -427,16 +452,17 @@ namespace Kade
 
         private float ultimateCooldown = 0f;
 
-        // Attack control fields
-        [SerializeField] private float attackCooldown = 2f; // editable in Inspector
-        private float lastAttackTime = -Mathf.Infinity;     // tracks last attack end
-        private bool isAttacking = false;                   // locks state machine during attack
+        [SerializeField] private float attackCooldown = 2f;
+        private float lastAttackTime = -Mathf.Infinity;
+        private bool isAttacking = false;
 
         void Start()
         {
             Navigator = GetComponent<Navigator>();
             Player = FindObjectOfType<PlayerLogic>().transform;
+            playerController = Player.GetComponent<CharacterController>();
             Rigidbody = GetComponent<Rigidbody>();
+            playerAnim = Player.GetComponent<Animator>();
             Transform = transform;
             Anim = GetComponent<Animator>();
             Dam = GetComponent<Damageable>();
@@ -451,7 +477,21 @@ namespace Kade
 
         void Update()
         {
+            if (StateMachine.CurrentState is DeadState)
+                return;
+            
             StateMachine.Update();
+
+            if (StateMachine.CurrentState is UltimateMoveState)
+            {
+                playerLogic.StopMovement();
+            }
+
+            if (Dam.currentHealth <= 0)
+            {
+                Death();
+                return;
+            }
 
             if (ultimateCooldown > 0f)
                 ultimateCooldown -= Time.deltaTime;
@@ -466,7 +506,6 @@ namespace Kade
                 }
             }
 
-            // Gate melee attack call
             if (InMeleeRange && CanAttack && !isAttacking && Time.time >= lastAttackTime + attackCooldown)
             {
                 StartCoroutine(HandleMelee());
@@ -475,11 +514,18 @@ namespace Kade
 
         void FixedUpdate()
         {
+            if (StateMachine.CurrentState is DeadState)
+            {
+                Rigidbody.linearVelocity = Vector3.zero;
+                return;
+            }
+
             if (IsFrozen)
             {
                 Rigidbody.linearVelocity = Vector3.zero;
                 return;
             }
+
             Rigidbody.linearVelocity = TargetVelocity;
             isMoving = TargetVelocity.magnitude > 0.1f;
             Anim.SetBool("isMoving", isMoving);
@@ -487,7 +533,7 @@ namespace Kade
 
         public IEnumerator HandleMelee()
         {
-            if (isAttacking) yield break; // safety
+            if (isAttacking) yield break;
             isAttacking = true;
 
             swordHitbox.SetActive(true);
@@ -497,14 +543,13 @@ namespace Kade
                 Anim.SetTrigger("tripleSwing");
 
                 float elapsed = 0f;
-                const float duration = 3.5f; // TripleSwing length
+                const float duration = 3.5f;
                 const float moveSpeed = 3f;
 
                 while (elapsed < duration)
                 {
                     elapsed += Time.deltaTime;
 
-                    // Move toward player during attack
                     Vector3 dir = Player.position - Transform.position;
                     dir.y = 0f;
                     if (dir.sqrMagnitude > 0.001f)
@@ -592,7 +637,6 @@ namespace Kade
             kickHitbox.SetActive(false);
         }
 
-
         public void SetFrozen(bool frozen)
         {
             IsFrozen = frozen;
@@ -608,6 +652,41 @@ namespace Kade
                 Navigator.enabled = true;
             }
         }
+
+        /*public void FreezePlayer()
+        {
+            if (playerController != null)
+            {
+                frozenPosition = playerController.transform.position;
+                playerController.enabled = false; // only player controller
+            }
+
+            if (playerAnim != null)
+            {
+                playerAnim.speed = 0f; // only player animator
+            }
+        }
+
+        public void MaintainFreeze()
+        {
+            if (Player != null)
+            {
+                Player.position = frozenPosition; // only player transform
+            }
+        }
+
+        public void UnfreezePlayer()
+        {
+            if (playerController != null)
+            {
+                playerController.enabled = true;
+            }
+
+            if (playerAnim != null)
+            {
+                playerAnim.speed = 1f;
+            }
+        }*/
 
         public void Death() => StateMachine.ChangeState(new DeadState(this));
 

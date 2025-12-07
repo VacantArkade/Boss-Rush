@@ -295,4 +295,10 @@ public class PlayerLogic : MonoBehaviour
         moveVelocity = Vector3.zero;
         GameManager.instance.RestartLevel();
     }
+
+    // add in PlayerLogic.cs
+    public void StopMovement()
+    {
+        moveVelocity = Vector3.zero;
+    }
 }

@@ -1076,7 +1076,7 @@ MonoBehaviour:
   speed: 5
   teleportBubblePrefab: {fileID: 1881720908210969295, guid: 314efce8493b33b4bb10d801e1691668, type: 3}
   TeleportCooldown: 10
-  attackCooldown: 2
+  attackCooldown: 1.5
 --- !u!114 &544976856
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1150,7 +1150,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb273e0f3a83ed34a8217044c573614e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxHealth: 19
+  maxHealth: 40
   iTime: 0.5
   flashMaterial: {fileID: 2100000, guid: 9e878199917d34949949dff4be7c396d, type: 2}
   renderers: []

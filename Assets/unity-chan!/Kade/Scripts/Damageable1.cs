@@ -88,13 +88,11 @@ namespace Kade
 
             timeSinceHit = 0f;
 
-            // Track sequence hits
             if (isUnityChan)
             {
                 sequenceHits++;
                 sequenceTimer = 0f;
 
-                // If hit threshold reached, enter BlockState
                 if (sequenceHits >= hitThreshold && !chanScript.IsBlocking)
                 {
                     chanScript.BeginBlockRequest();
